@@ -5,8 +5,7 @@ from typing import List, Optional, Union
 
 import aiomysql.cursors
 from pydantic import BaseModel
-from pymysql import escape_string
-from pymysql.converters import escape_bytes_prefixed, escape_item
+from pymysql.converters import escape_bytes_prefixed, escape_item, escape_string
 
 from odim import BaseOdimModel, NotFoundException, Odim, Operation, SearchParams, get_connection_info
 
