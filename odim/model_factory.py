@@ -57,6 +57,19 @@ DM_TYPE_MAPPING = {
   "Mixed" : Any
 }
 
+#TODO: expand this
+MYSQL_TYPE_MAPPING = {
+  "char" : str,
+  "int" : int,
+  "Boolean" : bool,
+  "Array" : list,
+  "List" : list,
+  "Date" : datetime,
+  "timestamp": datetime,
+  "varchar": str,
+  "text": str
+}
+
 class SEnum(str, Enum):
   pass
 
@@ -74,7 +87,7 @@ def get_available_class_name(name):
   return name
 
 
-def encode(k, v):
+def encode(k, v, db_name=None):
   if isinstance(v, list):
     if len(v) == 0:
       return Optional[List[Any]], None
@@ -123,6 +136,10 @@ def encode(k, v):
         field.default = v.get("default", None)
         return Optional[dt], field
   else: #a string is there as value
+    if db_name and 'mysql' in db_name:
+      if 'char' in v:
+        v = 'char'
+      return Optional[MYSQL_TYPE_MAPPING.get(v, str)], None
     return Optional[DM_TYPE_MAPPING.get(v, str)], None
 
 
@@ -187,6 +204,82 @@ class ModelFactory(object):
                        __base__=BaseMongoModel,
                        **newcls)
       meta_attrs = {"collection_name": collection_name, **vars(BaseMongoModel.Config)}
+      if db_name:
+        meta_attrs["db_name"] = db_name
+      if db_uri:
+        meta_attrs["db_uri"] = db_uri
+      if softdelete:
+        meta_attrs["softdelete"] = softdelete
+      if signal_file: # now handle the signals
+        spec = importlib.util.spec_from_file_location(f"odim.dynmodels.{class_name}.signals", signal_file)
+        foo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(foo)
+        for n,x in inspect.getmembers(foo):
+          if inspect.isfunction(x):
+            if not "odim_hooks" in meta_attrs:
+              meta_attrs["odim_hooks"] = {"pre_init":[], "post_init":[], "pre_save":[], "post_save":[],"pre_remove":[],"post_remove":[],"pre_validate":[],"post_validate":[]}
+            if n in meta_attrs["odim_hooks"].keys():
+              meta_attrs["odim_hooks"][n].append(x)
+          elif inspect.isclass(x) and issubclass(x, BaseSignals) and x!=BaseSignals:
+            for cfn,cfx in inspect.getmembers(x, predicate=inspect.ismethod):
+              if not getattr(cfx,'__isabstractmethod__',None):
+                if not "odim_hooks" in meta_attrs:
+                  meta_attrs["odim_hooks"] = {"pre_init":[], "post_init":[], "pre_save":[], "post_save":[],"pre_remove":[],"post_remove":[],"pre_validate":[],"post_validate":[]}
+                if cfn in meta_attrs["odim_hooks"].keys():
+                  meta_attrs["odim_hooks"][n].append(cfx)
+
+      setattr(m, 'Config', type('class', (), meta_attrs))
+      m.__doc__ = description
+      m.update_forward_refs()
+      return m
+
+  @classmethod
+  def load_mysql_model(cls, class_name=None,
+                       description=None,
+                       db_name=None, db_uri=None,
+                       database=None, collection_name=None,
+                       softdelete=None,
+                       file_uri=None, signal_file=None,
+                       fields=[], exclude=[], extend={}) -> Type[BaseModel]:
+
+    assert db_name or db_uri, "Either database_name or database_uri must be specified"
+    assert database and collection_name, "database and collection_name must be set"
+    if not file_uri:
+      file_uri = "src/schemas/src/"+database+"/"+collection_name.lower() +".json"
+    file = location_tester(file_uri)
+    assert file, "No schema json was found."
+
+    if not signal_file:
+      signal_file = "schemas/dist/python3/odim/hooks/"+database+"/"+collection_name.lower() +".py"
+    signal_file = location_tester(signal_file)
+
+    with open(file, "r") as f:
+      data = json.loads(f.read())
+      newcls = {}
+      for k,v in data.items():
+        if len(fields)==0 or (len(fields)>0 and k in fields):
+          if k not in exclude:
+            if k in ("__class_name","__title"):
+              if not class_name:
+                class_name = v
+            elif k in ("__description"):
+              if not description:
+                description = v
+            else:
+              newcls[k] = encode(k, v, db_name)
+      for k,f in extend.items():
+        if isinstance(f, (str,dict)):
+          newcls[k] = encode(k,f, db_name)
+        else:
+          newcls[k] = f
+
+      if not class_name:
+        class_name = collection_name
+      m = create_model(get_available_class_name(class_name),
+                       __module__ = "odim.dynmodels",
+                       __base__=BaseModel,
+                       **newcls)
+      meta_attrs = {"collection_name": collection_name, **vars(BaseModel.Config)}
       if db_name:
         meta_attrs["db_name"] = db_name
       if db_uri:

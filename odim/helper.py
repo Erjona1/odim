@@ -13,6 +13,18 @@ modsloaded = False
 def get_config(confvar, default=None):
   global settings_module, modsloaded
   o = os.environ.get(confvar)
+  env = os.path.isfile('.env')
+  if env:
+    return {
+      'mysqldb': {
+      'host': os.getenv('DATABASE_HOST'),
+      'db': os.getenv('DATABASE_NAME'),
+      'port': os.getenv('DATABASE_PORT'),
+      'username': os.getenv('DATABASE_USER'),
+      'password': os.getenv('DATABASE_PASSWORD'),
+      'protocol': 'mysqldb'
+      }
+      }
   if o:
     return o
   if not modsloaded:

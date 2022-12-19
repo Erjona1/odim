@@ -19,7 +19,7 @@ async def connected_pool(db):
     cn = get_connection_info(db)
     if not cn.port:
       cn.port = 3306
-    pools[db] =  await aiomysql.create_pool(host=cn.host, port=cn.port, user=cn.username, password=cn.password,
+    pools[db] =  await aiomysql.create_pool(host=cn.host, port=int(cn.port), user=cn.username, password=cn.password,
                                             db=cn.db, cursorclass=aiomysql.cursors.DictCursor)
   return pools[db]
 
@@ -54,7 +54,7 @@ class BaseMysqlModel(BaseOdimModel):
 
 
 class OdimMysql(Odim):
-  protocols = ["mysql"]
+  protocols = ["mysql", "mysqldb"]
 
   def escape(self, obj):
     """ Escape whatever value you pass to it"""
@@ -71,6 +71,9 @@ class OdimMysql(Odim):
       if hasattr(self.model.Config, 'table_name'):
         cn = self.model.Config.table_name
         return ci, cn
+      elif hasattr(self.model.Config, 'collection_name'):
+        cn = self.model.Config.collection_name
+        return ci, cn
     return ci, self.model.__class__.__name__
 
 
@@ -82,7 +85,8 @@ class OdimMysql(Odim):
     :return: the document as pydantic instance '''
     #TODO just the desired fields
     db, table = self.get_table_name()
-    query = {"id" : self.escape(id), **extend_query}
+    id = id if id.isdigit() else self.escape(id)
+    query = {"id" : id, **extend_query}
     if self.softdelete() and not include_deleted:
       query[self.softdelete()] = False
     wh = self.get_where(query)
@@ -221,11 +225,12 @@ class OdimMysql(Odim):
     if self.has_hooks("pre_remove","post_remove"):
       x = await self.get(id)
       x = self.execute_hooks("pre_remove", x, softdelete=softdelete)
+    id = id if id.isdigit() else self.escape(id)
     if softdelete:
-      whr = self.get_where({"id" : self.escape(id), **extend_query})
+      whr = self.get_where({"id" : id, **extend_query})
       await execute_sql(db, "UPDATE %s SET `%s`=true WHERE %s" % (escape_string(table), self.softdelete(), whr), Op.execute)
     else:
-      whr = self.get_where({"id" : self.escape(id), **extend_query})
+      whr = self.get_where({"id" : id, **extend_query})
       await execute_sql(db, "DELETE FROM %s WHERE %s" % (escape_string(table), whr), Op.execute)
     if self.has_hooks("post_remove"):
       self.execute_hooks("post_remove", x, softdelete=softdelete)
