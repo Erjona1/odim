@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List, Optional, Union
 
 import aiomysql.cursors
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pymysql.converters import escape_bytes_prefixed, escape_item, escape_string
 
 from odim import BaseOdimModel, NotFoundException, Odim, Operation, SearchParams, get_connection_info
@@ -50,7 +50,7 @@ async def execute_sql(db, sql, co : Op = Op.execute):
 
 
 class BaseMysqlModel(BaseOdimModel):
-  pass
+  id: Optional[str] = Field(alias='id', description="Unique identifier of the record")
 
 
 class OdimMysql(Odim):
