@@ -13,6 +13,7 @@ from typing import Any, List, Optional, Type, Union
 
 from odim.helper import snake_case_to_camel_case
 from odim.basesignals import BaseSignals
+from odim.mysql import BaseMysqlModel
 from pydantic import BaseModel, Field, create_model
 from odim.mongo import BaseMongoModel, ObjectId
 from datetime import datetime
@@ -277,9 +278,9 @@ class ModelFactory(object):
         class_name = collection_name
       m = create_model(get_available_class_name(class_name),
                        __module__ = "odim.dynmodels",
-                       __base__=BaseModel,
+                       __base__=BaseMysqlModel,
                        **newcls)
-      meta_attrs = {"collection_name": collection_name, **vars(BaseModel.Config)}
+      meta_attrs = {"collection_name": collection_name, **vars(BaseMysqlModel.Config)}
       if db_name:
         meta_attrs["db_name"] = db_name
       if db_uri:

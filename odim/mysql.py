@@ -109,15 +109,16 @@ class OdimMysql(Odim):
   async def save(self, extend_query : dict= {}, include_deleted : bool = False):
     ''' Saves the document and returns its identifier '''
     db, table = self.get_table_name()
-    iii = self.execute_hooks("pre_save", self.instance, created=(not self.instance.id))
+    new_record = not hasattr(self.instance, 'id') or self.instance.id in (None, "")
+    iii = self.execute_hooks("pre_save", self.instance, created=new_record)
     do = iii.dict(by_alias=True)
 
-    if self.instance.id in (None, ""):
+    if new_record:
       if self.softdelete() and self.softdelete() not in do:
         do[self.softdelete()] = False
       upff = self.get_field_pairs({**extend_query, **do})
       rsp = await execute_sql(db, "INSERT INTO %s SET %s" % (escape_string(table), upff), Op.execute)
-      self.instance.id = rsp.lastrowid
+      setattr(self.instance, 'id', rsp.lastrowid)
       iii.id = self.instance.id
       iii = self.execute_hooks("post_save", iii, created=True)
       return rsp.lastrowid
