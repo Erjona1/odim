@@ -155,6 +155,10 @@ class Odim(object):
     if hasattr(self.model, 'Config') and hasattr(self.model.Config, 'softdelete'):
       return getattr(self.model.Config,'softdelete')
 
+  def id_auto_inc(self):
+    if hasattr(self.model, 'Config') and hasattr(self.model.Config, 'id_auto_inc'):
+      return getattr(self.model.Config,'id_auto_inc')
+
   def execute_hooks(self, hook_type, obj, *args, **kwargs):
     if hasattr(self.model, "Config") and hasattr(self.model.Config, "odim_hooks"):
       for fnc in self.model.Config.odim_hooks.get(hook_type,[]):

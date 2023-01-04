@@ -241,7 +241,7 @@ class ModelFactory(object):
                        database=None, collection_name=None,
                        softdelete=None,
                        file_uri=None, signal_file=None,
-                       fields=[], exclude=[], extend={}) -> Type[BaseModel]:
+                       fields=[], exclude=[], extend={}, id_auto_inc=True) -> Type[BaseModel]:
 
     assert db_name or db_uri, "Either database_name or database_uri must be specified"
     assert database and collection_name, "database and collection_name must be set"
@@ -287,6 +287,7 @@ class ModelFactory(object):
         meta_attrs["db_uri"] = db_uri
       if softdelete:
         meta_attrs["softdelete"] = softdelete
+      meta_attrs["id_auto_inc"] = id_auto_inc
       if signal_file: # now handle the signals
         spec = importlib.util.spec_from_file_location(f"odim.dynmodels.{class_name}.signals", signal_file)
         foo = importlib.util.module_from_spec(spec)

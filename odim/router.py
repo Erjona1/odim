@@ -22,7 +22,8 @@ class OdimRouter(fastapi.APIRouter):
                  include_in_schema: bool = True,
                  methods : Optional[Union[Set[str], List[str]]] = ('create','get','search','save','update','delete'),
                  methods_exclude : Optional[Union[Set[str], List[str]]] = [],
-                 extend_query : dict= {}):
+                 extend_query : dict= {},
+                 response_model: Type[BaseModel] = None):
     ''' Add endpoints for CRUD operations for particular model
     :param path: base_path, for the model resource location eg: /api/houses/
     :param model: pydantic/Odim BaseModel, that is used for eg. Houses
@@ -39,11 +40,11 @@ class OdimRouter(fastapi.APIRouter):
       async def create(request : fastapi.Request, obj : model):
         for k, v in exec_extend_query(request,extend_query).items():
           setattr(obj, k, v)
-        await Odim(obj).save()
-        return obj
+        rsp = await Odim(obj).save()
+        return {'id': rsp}
       self.add_api_route(path = path,
                          endpoint=create,
-                         response_model=model,
+                         response_model=model if not response_model else response_model,
                          status_code=201,
                          tags=tags,
                          dependencies = dependencies,
@@ -57,7 +58,7 @@ class OdimRouter(fastapi.APIRouter):
         return await Odim(model).get(id=id, extend_query=exec_extend_query(request,extend_query))
       self.add_api_route(path = path+"{id}",
                          endpoint=get,
-                         response_model=model,
+                         response_model=model if not response_model else response_model,
                          tags=tags,
                          dependencies = dependencies,
                          summary="Get %s by id" % model.schema().get('title'),
@@ -74,7 +75,7 @@ class OdimRouter(fastapi.APIRouter):
         return rsp
       self.add_api_route(path = path,
                          endpoint=search,
-                         response_model=SearchResponse[model],
+                         response_model=SearchResponse[model] if not response_model else response_model,
                          tags=tags,
                          dependencies = dependencies,
                          summary="Search for %ss" % model.schema().get('title'),
@@ -89,7 +90,7 @@ class OdimRouter(fastapi.APIRouter):
         return obj
       self.add_api_route(path = path+"{id}",
                      endpoint=save,
-                     response_model=model,
+                     response_model=model if not response_model else response_model,
                      tags=tags,
                      dependencies = dependencies,
                      summary="Replace %s by id" % model.schema().get('title'),
@@ -104,7 +105,7 @@ class OdimRouter(fastapi.APIRouter):
         return obj
       self.add_api_route(path = path+"{id}",
                      endpoint=update,
-                     response_model=model,
+                     response_model=model if not response_model else response_model,
                      tags=tags,
                      dependencies = dependencies,
                      summary="Partial update %s by id" % model.schema().get('title'),
@@ -118,7 +119,7 @@ class OdimRouter(fastapi.APIRouter):
         return OkResponse()
       self.add_api_route(path = path+"{id}",
                      endpoint=delete,
-                     response_model=OkResponse,
+                     response_model=OkResponse if not response_model else response_model,
                      status_code=200,
                      tags=tags,
                      dependencies = dependencies,

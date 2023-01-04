@@ -102,7 +102,7 @@ class OdimMysql(Odim):
     for k, v in field_dict.items():
       if not re.match("[a-zA-Z0-9_]+", k):
         raise AttributeError("Writing a non ASCII field name")
-      if k!="id":
+      if k!="id" or not self.id_auto_inc():
         inss.append( "`"+k+"`="+str(self.escape(v)) )
     return ",".join(inss)
 
@@ -118,9 +118,10 @@ class OdimMysql(Odim):
         do[self.softdelete()] = False
       upff = self.get_field_pairs({**extend_query, **do})
       rsp = await execute_sql(db, "INSERT INTO %s SET %s" % (escape_string(table), upff), Op.execute)
-      setattr(self.instance, 'id', rsp.lastrowid)
-      iii.id = self.instance.id
+      # setattr(self.instance, 'id', rsp.lastrowid)
+      # iii.id = self.instance.id
       iii = self.execute_hooks("post_save", iii, created=True)
+      return do['id']
       return rsp.lastrowid
     else:
       softdel = {self.softdelete(): False} if self.softdelete() and not include_deleted else {}
