@@ -1,3 +1,4 @@
 motor
 pydantic
 nest_asyncio
+SQLAlchemy

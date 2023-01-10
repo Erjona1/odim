@@ -6,6 +6,9 @@ from typing import List, Optional, Union
 import aiomysql.cursors
 from pydantic import BaseModel, Field
 from pymysql.converters import escape_bytes_prefixed, escape_item, escape_string
+from sqlalchemy.sql import text
+from sqlalchemy import and_, or_, not_
+
 
 from odim import BaseOdimModel, NotFoundException, Odim, Operation, SearchParams, get_connection_info
 
@@ -153,6 +156,7 @@ class OdimMysql(Odim):
   def get_where(self, query):
     whr = []
     for k, (op, v) in self.parse_query_operations(query).items():
+      k = k.replace('$', '')
       if not re.match("[a-zA-Z0-9_]+", k):
         raise AttributeError("Searching on a non ASCII field name")
       if op == Operation.exact:
@@ -175,6 +179,44 @@ class OdimMysql(Odim):
         else:
           whr.append( "`"+k+"` IS NOT NULL" )
     return  "1" if len(whr) == 0  else " AND ".join(whr)
+  
+  def iterate_query(self, items, query=[]):
+    operators = ['$or', '$and']
+    for k, v in items:
+      if k in operators:
+        if isinstance(v, list):
+          for item in v:
+            self.iterate_query(item.items(), query)
+        else:
+          self.iterate_query(v, query)
+      else:
+            try:
+              query.append(self.filter2query(k, v))
+            except (ValueError, AttributeError) as err:
+              query.append(text(f"{k} = '{v}'"))
+    return query
+
+  def filter2query(self, field: str, value: dict):
+    ret = None
+    print (field, value)
+    for op, val in value.items():
+      if 'eq' in op:
+        ret = text(f"{field} = '{val}'")
+      if 'gt' in op:
+        ret = text(f"{field} > {val}")
+      if 'lt' in op:
+        ret = text(f"{field} < {val}")
+      if 'gte' in op:
+        ret = text(f"{field} >= {val}")
+      if 'lte' in op:
+        ret = text(f"{field} <= {val}")
+      if 'in' in op:
+        ret = text(f"{field} like '%{val}%'")
+      if 'has' in op:
+        ret = text(f"{field} in {tuple(val.split(','))}")
+      if op.startswith('!'):
+          ret = not_(ret)
+    return ret
 
 
   async def find(self, query : dict, params : SearchParams = None, include_deleted : bool = False):
@@ -185,7 +227,7 @@ class OdimMysql(Odim):
     db, table = self.get_table_name()
     if self.softdelete() and not include_deleted:
       query = {self.softdelete(): False, **query}
-    where = self.get_where(query)
+    # where = self.get_where(query)
     sql_params = ""
     if params:
       if params.sort not in (None, ''):
@@ -198,7 +240,9 @@ class OdimMysql(Odim):
         sql_params+= " LIMIT "+str(params.limit)
       if params.offset:
         sql_params+= " OFFSET "+str(params.offset)
-    rsp = await execute_sql(db, "SELECT * FROM %s WHERE %s %s" % (escape_string(table), where, sql_params), Op.fetchall)
+    res = self.iterate_query(query.items(), [])
+    test = and_(*res)
+    rsp = await execute_sql(db, "SELECT * FROM %s WHERE %s %s" % (escape_string(table), test, sql_params), Op.fetchall)
     rsplist = []
     for row in rsp:
       x2 = self.execute_hooks("pre_init", row)
@@ -214,8 +258,10 @@ class OdimMysql(Odim):
     db, table = self.get_table_name()
     if self.softdelete() and not include_deleted:
       query = {self.softdelete(): False, **query}
-    where = self.get_where(query)
-    rsp = await execute_sql(db, "SELECT COUNT(*) as cnt FROM %s WHERE %s" % (escape_string(table), where), Op.fetchone)
+    # where = self.get_where(query)
+    res = self.iterate_query(query.items(), [])
+    test = and_(*res)
+    rsp = await execute_sql(db, "SELECT COUNT(*) as cnt FROM %s WHERE %s" % (escape_string(table), test), Op.fetchone)
     return rsp["cnt"]
 
 
