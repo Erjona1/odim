@@ -180,44 +180,46 @@ class OdimMysql(Odim):
           whr.append( "`"+k+"` IS NOT NULL" )
     return  "1" if len(whr) == 0  else " AND ".join(whr)
   
-  def iterate_query(self, items, query=[]):
-    operators = ['$or', '$and']
-    for k, v in items:
-      if k in operators:
-        if isinstance(v, list):
-          for item in v:
-            self.iterate_query(item.items(), query)
-        else:
-          self.iterate_query(v, query)
+
+
+
+  def dict_to_mysql_query(self, query):
+    mysql_query = ""
+    conditions = []
+    breakpoint()
+    for key, value in query.items():
+      if key == "$or" or key == "$and":
+          sub_conditions = []
+          for sub_dict in value:
+              sub_query = self.dict_to_mysql_query(sub_dict)
+              sub_conditions.append(sub_query)
+          if key == '$or':
+            key = 'OR'
+          elif key == '$and':
+            key = 'AND'
+          result = "(" + f" {key} ".join(str(x) for x in sub_conditions) + ")"
+          conditions.append(result)
+      elif isinstance(value, dict):
+          sub_query = self.dict_to_mysql_query(value)
+          conditions.append(key + " " + sub_query)
+      elif key == "$regex":
+          conditions.append(" LIKE '%" + value + "%'")
+      elif key == "$lt":
+          conditions.append(" < " + str(value))
+      elif key == "$lte":
+          conditions.append(" <= " + str(value))
+      elif key == "$gt":
+          conditions.append(" > " + str(value))
+      elif key == "$gte":
+          conditions.append(" >= " + str(value))
+      elif key == "$in":
+          conditions.append(" in " + str(tuple(value.split(','))))
+      elif key == "$lte":
+          conditions.append(" <= " + str(value))
       else:
-            try:
-              query.append(self.filter2query(k, v))
-            except (ValueError, AttributeError) as err:
-              query.append(text(f"{k} = '{v}'"))
-    return query
-
-  def filter2query(self, field: str, value: dict):
-    ret = None
-    print (field, value)
-    for op, val in value.items():
-      if 'eq' in op:
-        ret = text(f"{field} = '{val}'")
-      if 'gt' in op:
-        ret = text(f"{field} > {val}")
-      if 'lt' in op:
-        ret = text(f"{field} < {val}")
-      if 'gte' in op:
-        ret = text(f"{field} >= {val}")
-      if 'lte' in op:
-        ret = text(f"{field} <= {val}")
-      if 'in' in op:
-        ret = text(f"{field} like '%{val}%'")
-      if 'has' in op:
-        ret = text(f"{field} in {tuple(val.split(','))}")
-      if op.startswith('!'):
-          ret = not_(ret)
-    return ret
-
+          conditions.append(key + " = '" + value + "'")
+    mysql_query += " AND ".join(conditions)
+    return mysql_query
 
   async def find(self, query : dict, params : SearchParams = None, include_deleted : bool = False):
     ''' Performs search using a dictionary qury to find documents on that particular collection/table
@@ -240,9 +242,8 @@ class OdimMysql(Odim):
         sql_params+= " LIMIT "+str(params.limit)
       if params.offset:
         sql_params+= " OFFSET "+str(params.offset)
-    res = self.iterate_query(query.items(), [])
-    test = and_(*res)
-    rsp = await execute_sql(db, "SELECT * FROM %s WHERE %s %s" % (escape_string(table), test, sql_params), Op.fetchall)
+    res = self.dict_to_mysql_query(query)
+    rsp = await execute_sql(db, "SELECT * FROM %s WHERE %s %s" % (escape_string(table), res, sql_params), Op.fetchall)
     rsplist = []
     for row in rsp:
       x2 = self.execute_hooks("pre_init", row)
@@ -259,9 +260,8 @@ class OdimMysql(Odim):
     if self.softdelete() and not include_deleted:
       query = {self.softdelete(): False, **query}
     # where = self.get_where(query)
-    res = self.iterate_query(query.items(), [])
-    test = and_(*res)
-    rsp = await execute_sql(db, "SELECT COUNT(*) as cnt FROM %s WHERE %s" % (escape_string(table), test), Op.fetchone)
+    res = self.dict_to_mysql_query(query)
+    rsp = await execute_sql(db, "SELECT COUNT(*) as cnt FROM %s WHERE %s" % (escape_string(table), res), Op.fetchone)
     return rsp["cnt"]
 
 
