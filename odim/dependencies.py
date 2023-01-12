@@ -25,6 +25,7 @@ class SearchParams:
         else:
           raise ValidationError("q parameter must be either a urlencoded JSON or key=value entry")
       for key in self.q:
+        key = key.replace('$', '')
         if not re.match("[a-zA-Z0-9_]+", key):
           raise ValidationError("The field in q param seems to be incorrect")
     else:
