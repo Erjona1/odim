@@ -186,7 +186,6 @@ class OdimMysql(Odim):
   def dict_to_mysql_query(self, query):
     mysql_query = ""
     conditions = []
-    breakpoint()
     for key, value in query.items():
       if key == "$or" or key == "$and":
           sub_conditions = []
@@ -202,6 +201,8 @@ class OdimMysql(Odim):
       elif isinstance(value, dict):
           sub_query = self.dict_to_mysql_query(value)
           conditions.append(key + " " + sub_query)
+      elif key == "$not":
+        conditions.append(" != " + str(value))
       elif key == "$regex":
           conditions.append(" LIKE '%" + value + "%'")
       elif key == "$lt":
@@ -216,6 +217,8 @@ class OdimMysql(Odim):
           conditions.append(" in " + str(tuple(value.split(','))))
       elif key == "$lte":
           conditions.append(" <= " + str(value))
+      elif key == "$nor":
+        conditions.append("not (" + f" or ".join(str(self.dict_to_mysql_query(x)) for x in value) + ")")
       else:
           conditions.append(key + " = '" + value + "'")
     mysql_query += " AND ".join(conditions)
