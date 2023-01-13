@@ -215,10 +215,16 @@ class OdimMysql(Odim):
           conditions.append(" >= " + str(value))
       elif key == "$in":
           conditions.append(" in " + str(tuple(value.split(','))))
+      elif key == "$nin":
+        conditions.append(" not in " + str(tuple(value.split(','))))
       elif key == "$lte":
           conditions.append(" <= " + str(value))
       elif key == "$nor":
         conditions.append("not (" + f" or ".join(str(self.dict_to_mysql_query(x)) for x in value) + ")")
+      elif key == "$eq":
+        conditions.append(key + " = '" + value + "'")
+      elif key == "$ne":
+        conditions.append(key + " != '" + value + "'")
       else:
           conditions.append(key + " = '" + value + "'")
     mysql_query += " AND ".join(conditions)
