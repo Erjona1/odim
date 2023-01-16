@@ -251,7 +251,7 @@ class OdimMysql(Odim):
         sql_params+= " LIMIT "+str(params.limit)
       if params.offset:
         sql_params+= " OFFSET "+str(params.offset)
-    res = self.dict_to_mysql_query(query)
+    res = self.dict_to_mysql_query(query) or "1"
     rsp = await execute_sql(db, "SELECT * FROM %s WHERE %s %s" % (escape_string(table), res, sql_params), Op.fetchall)
     rsplist = []
     for row in rsp:
@@ -269,7 +269,7 @@ class OdimMysql(Odim):
     if self.softdelete() and not include_deleted:
       query = {self.softdelete(): False, **query}
     # where = self.get_where(query)
-    res = self.dict_to_mysql_query(query)
+    res = self.dict_to_mysql_query(query) or "1"
     rsp = await execute_sql(db, "SELECT COUNT(*) as cnt FROM %s WHERE %s" % (escape_string(table), res), Op.fetchone)
     return rsp["cnt"]
 
