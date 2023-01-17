@@ -68,7 +68,8 @@ MYSQL_TYPE_MAPPING = {
   "Date" : datetime,
   "timestamp": datetime,
   "varchar": str,
-  "text": str
+  "text": str,
+  "Mixed" : Any
 }
 
 class SEnum(str, Enum):
