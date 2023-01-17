@@ -259,7 +259,15 @@ class OdimMysql(Odim):
       m = self.model( **row )
       rsplist.append( self.execute_hooks("post_init", m) )
     return rsplist
-
+  
+  async def get_related(self, query, related):
+    db, table = self.get_table_name()
+    res = self.dict_to_mysql_query(query) or "1"
+    q = "SELECT * FROM %s JOIN %s WHERE %s " %(escape_string(table), related.Config.collection_name, res)
+    rsp = await execute_sql(db, q, Op.fetchone)
+    ret = self.execute_hooks("pre_init", rsp)
+    x = self.model(**ret)
+    return self.execute_hooks("post_init", x)
 
   async def count(self, query : dict, include_deleted : bool = False) -> int:
     ''' Do the search and count the documents
