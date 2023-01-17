@@ -91,7 +91,6 @@ class OdimMysql(Odim):
     if not id:
       query = {**extend_query}
     else:
-      id = id if id.isdigit() else self.escape(id)
       query = {"id" : id, **extend_query}
     if self.softdelete() and not include_deleted:
       query[self.softdelete()] = False
