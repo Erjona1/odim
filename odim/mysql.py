@@ -88,8 +88,11 @@ class OdimMysql(Odim):
     :return: the document as pydantic instance '''
     #TODO just the desired fields
     db, table = self.get_table_name()
-    id = id if id.isdigit() else self.escape(id)
-    query = {"id" : id, **extend_query}
+    if not id:
+      query = {**extend_query}
+    else:
+      id = id if id.isdigit() else self.escape(id)
+      query = {"id" : id, **extend_query}
     if self.softdelete() and not include_deleted:
       query[self.softdelete()] = False
     wh = self.get_where(query)
@@ -180,8 +183,6 @@ class OdimMysql(Odim):
           whr.append( "`"+k+"` IS NOT NULL" )
     return  "1" if len(whr) == 0  else " AND ".join(whr)
   
-
-
 
   def dict_to_mysql_query(self, query):
     mysql_query = ""
