@@ -1,11 +1,11 @@
 '''
 Contains the extended FastAPI router, for simplified CRUD from a model
 '''
-from typing import Any, List, Optional, Sequence, Set, Type, Union
+from typing import List, Optional, Sequence, Set, Type, Union
 
 import fastapi
 from fastapi import Depends, params
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 
 from odim import Odim, OkResponse, SearchResponse
 from odim.dependencies import SearchParams
@@ -23,7 +23,8 @@ class OdimRouter(fastapi.APIRouter):
                  methods : Optional[Union[Set[str], List[str]]] = ('create','get','search','save','update','delete'),
                  methods_exclude : Optional[Union[Set[str], List[str]]] = [],
                  extend_query : dict= {},
-                 response_model: Type[BaseModel] = None):
+                 response_model: Type[BaseModel] = None,
+                 restrict: bool = False):
     ''' Add endpoints for CRUD operations for particular model
     :param path: base_path, for the model resource location eg: /api/houses/
     :param model: pydantic/Odim BaseModel, that is used for eg. Houses
@@ -68,8 +69,12 @@ class OdimRouter(fastapi.APIRouter):
 
     if 'search' in add_methods:
       async def search(request : fastapi.Request, search_params : dict = Depends(SearchParams)):
-        sp = {**search_params.q, **exec_extend_query(request,extend_query)}
-        rsp = { "results" : await Odim(model).find(sp, search_params),
+        if restrict and 'admin:0' in request.auth.scopes:
+          sp = {"id":request.user.account_id}
+        else:
+          sp = {**search_params.q, **exec_extend_query(request,extend_query)}
+        results = await Odim(model).find(sp, search_params)
+        rsp = { "results" : results,
                 "total" : await Odim(model).count(sp),
                 "search" : search_params.dict()}
         return rsp
