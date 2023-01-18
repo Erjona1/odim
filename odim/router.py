@@ -24,7 +24,8 @@ class OdimRouter(fastapi.APIRouter):
                  methods_exclude : Optional[Union[Set[str], List[str]]] = [],
                  extend_query : dict= {},
                  response_model: Type[BaseModel] = None,
-                 restrict: bool = False):
+                 restrict: bool = False,
+                 field: str = 'id'):
     ''' Add endpoints for CRUD operations for particular model
     :param path: base_path, for the model resource location eg: /api/houses/
     :param model: pydantic/Odim BaseModel, that is used for eg. Houses
@@ -70,7 +71,7 @@ class OdimRouter(fastapi.APIRouter):
     if 'search' in add_methods:
       async def search(request : fastapi.Request, search_params : dict = Depends(SearchParams)):
         if restrict and 'admin:0' in request.auth.scopes:
-          sp = {"id":request.user.account_id}
+          sp = {"id":getattr(request.user, field)}
         else:
           sp = {**search_params.q, **exec_extend_query(request,extend_query)}
         results = await Odim(model).find(sp, search_params)
