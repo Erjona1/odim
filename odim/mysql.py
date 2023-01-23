@@ -290,7 +290,6 @@ class OdimMysql(Odim):
     if self.has_hooks("pre_remove","post_remove"):
       x = await self.get(id)
       x = self.execute_hooks("pre_remove", x, softdelete=softdelete)
-    id = id if id.isdigit() else self.escape(id)
     if softdelete:
       whr = self.get_where({"id" : id, **extend_query})
       await execute_sql(db, "UPDATE %s SET `%s`=true WHERE %s" % (escape_string(table), self.softdelete(), whr), Op.execute)
