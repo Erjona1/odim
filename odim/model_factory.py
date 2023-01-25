@@ -69,6 +69,7 @@ MYSQL_TYPE_MAPPING = {
   "timestamp": datetime,
   "varchar": str,
   "text": str,
+  "datetime": datetime,
   "Mixed" : Any
 }
 
