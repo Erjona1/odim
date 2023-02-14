@@ -70,7 +70,7 @@ class OdimRouter(fastapi.APIRouter):
 
     if 'search' in add_methods:
       async def search(request : fastapi.Request, search_params : dict = Depends(SearchParams)):
-        if restrict and 'admin:0' in request.auth.scopes:
+        if restrict and field:
           sp = {"id":getattr(request.user, field)}
         else:
           sp = {**search_params.q, **exec_extend_query(request,extend_query)}
