@@ -80,7 +80,7 @@ class OdimMysql(Odim):
     return ci, self.model.__class__.__name__
 
 
-  async def get(self, id : str, extend_query : dict= {}, include_deleted : bool = False):
+  async def get(self, id : str, extend_query : dict= {}, include_deleted : bool = False, field: str = ''):
     '''
     Retrieves the document by its id
     :param id: id of the docuemnt
@@ -100,7 +100,8 @@ class OdimMysql(Odim):
       raise NotFoundException()
     ret = self.execute_hooks("pre_init", rsp)
     x = self.model(**ret)
-    return self.execute_hooks("post_init", x)
+    obj = self.execute_hooks("post_init", x)
+    return getattr(obj, field) if field else obj
 
   def get_field_pairs(self, field_dict):
     inss = []
